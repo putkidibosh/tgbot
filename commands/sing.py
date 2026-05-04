@@ -1,49 +1,69 @@
+import requests
 import os
 import time
-from yt_dlp import YoutubeDL
+from urllib.parse import quote
 
-def register(bot):
-    @bot.message_handler(commands=['sing', 'song'])
-    def handle_sing(message):
-        args = message.text.split()
-        if len(args) < 2:
-            return bot.reply_to(message, "❐ 𝐆𝐚𝐚𝐧 𝐞𝐫 𝐧𝐚𝐚𝐦 𝐭𝐚 𝐛𝐨𝐥𝐨 𝐛𝐚𝐛𝐲! 🎵")
+# ⚔️ Command Configuration
+config = {
+    "name": "sing",
+    "description": "Download MP3 from YouTube ⚔️",
+    "usage": "/sing <song name>"
+}
 
-        query = " ".join(args[1:])
-        wait_msg = bot.reply_to(message, f"🔎 𝐖𝐚𝐢𝐭 𝐤𝐨𝐫𝐨 𝐛𝐚𝐛𝐞, '{query}' 𝐤𝐡𝐮𝐣𝐜𝐡𝐢... ✨")
+def handle(bot, message, args):
+    if not args:
+        return bot.reply_to(message, "⚔️ Please provide a song name or YouTube link!")
 
-        if not os.path.exists("cache"): os.makedirs("cache")
-        file_base = f"cache/song_{int(time.time())}"
+    query = " ".join(args)
+    # ⏳ Processing message
+    sent_msg = bot.reply_to(message, "⏳ ⚔️ Searching for your song...")
+    api_base = "https://www.noobs-apis.run.place"
+
+    try:
+        # ⚔️ Step 1: Search for the video
+        search_api = f"{api_base}/nazrul/youtube?type=s&query={quote(query)}"
+        search_data = requests.get(search_api).json()
         
-        # আরও উন্নত অপশন যোগ করা হয়েছে
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': file_base + '.%(ext)s',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'quiet': True,
-            'no_warnings': True,
-            'source_address': '0.0.0.0' # কানেকশন সমস্যা এড়াতে
-        }
+        results = search_data.get('results', {}).get('data', [])
+        if not results:
+            return bot.edit_message_text("⚔️ No results found on YouTube.", message.chat.id, sent_msg.message_id)
 
-        try:
-            with YoutubeDL(ydl_opts) as ydl:
-                ydl.download([f"ytsearch1:{query}"])
-            
-            final_file = file_base + ".mp3"
-            if os.path.exists(final_file):
-                with open(final_file, 'rb') as audio:
-                    bot.send_audio(
-                        message.chat.id, 
-                        audio, 
-                        caption=f"✅ 𝐇𝐞𝐫𝐞 𝐢𝐬 𝐲𝐨𝐮𝐫 𝐦𝐮𝐬𝐢𝐜 𝐛𝐚𝐛𝐲! 🕊️💖\n✨ 𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲: 𝐌𝐫.𝐊𝐢𝐧𝐠"
-                    )
-                os.remove(final_file)
-            
-            bot.delete_message(message.chat.id, wait_msg.message_id)
-        except Exception as e:
-            bot.edit_message_text(f"❌ 𝐄𝐫𝐫𝐨𝐫: 𝐒𝐞𝐫𝐯𝐞𝐫 𝐛𝐮𝐬𝐲 𝐛𝐚𝐛𝐞! 🥺", message.chat.id, wait_msg.message_id)
-            
+        video = results[0]
+        video_id = video['id']
+        video_title = video['title']
+        video_url = f"https://www.youtube.com/watch?v={video_id}"
+
+        # ⚔️ Step 2: Get the MP3 download link
+        download_api = f"{api_base}/nazrul/youtube?type=mp3&url={quote(video_url)}"
+        dl_data = requests.get(download_api).json()
+        audio_link = dl_data.get('download_url')
+
+        if not audio_url:
+            return bot.edit_message_text("⚔️ Download link not found! Try again later.", message.chat.id, sent_msg.message_id)
+
+        # ⚔️ Step 3: Download the file to local storage
+        file_path = f"song_{int(time.time())}.mp3"
+        response = requests.get(audio_link)
+        
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+
+        # ⚔️ Step 4: Send the Audio to Telegram
+        with open(file_path, "rb") as audio_file:
+            bot.send_audio(
+                message.chat.id, 
+                audio_file, 
+                caption=f"✅ ⚔️ Title: {video_title}\n⚔️ System By: Mr.King",
+                reply_to_message_id=message.message_id
+            )
+
+        # ⚔️ Cleanup: Delete temp file and processing message
+        bot.delete_message(message.chat.id, sent_msg.message_id)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    except Exception as e:
+        error_msg = f"⚔️ Error: {str(e)}"
+        bot.edit_message_text(error_msg, message.chat.id, sent_msg.message_id)
+        if 'file_path' in locals() and os.path.exists(file_path):
+            os.remove(file_path)
