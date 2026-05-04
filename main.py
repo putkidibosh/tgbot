@@ -1,32 +1,39 @@
 import telebot
 import os
-import importlib.util
+import importlib
 
-# আপনার বটের টোকেন
-TOKEN = "8267787403:AAFnvcYUUoHcRkoJnGSBLNCf9wMwVS_rUFQ"
+# ⚔️ আপনার বোট টোকেনটি এখানে দিন
+TOKEN = "YOUR_BOT_TOKEN_HERE"
 bot = telebot.TeleBot(TOKEN)
 
-# মডিউল লোড করার ফাংশন
 def load_commands():
-    commands_path = os.path.join(os.path.dirname(__file__), 'commands')
-    if not os.path.exists(commands_path):
-        os.makedirs(commands_path)
-
-    for filename in os.listdir(commands_path):
-        if filename.endswith('.py'):
-            module_name = filename[:-3]
-            file_path = os.path.join(commands_path, filename)
-            spec = importlib.util.spec_from_file_location(module_name, file_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            if hasattr(module, 'register'):
-                module.register(bot)
+    if not os.path.exists("commands"):
+        os.makedirs("commands")
+    
+    for filename in os.listdir("commands"):
+        if filename.endswith(".py") and filename != "__init__.py":
+            module_name = f"commands.{filename[:-3]}"
+            try:
+                module = importlib.import_module(module_name)
+                if hasattr(module, 'config') and hasattr(module, 'handle'):
+                    cmd_name = module.config["name"]
+                    
+                    # ⚔️ কমান্ড রেজিস্টার
+                    @bot.message_handler(commands=[cmd_name])
+                    def wrapper(message, m=module):
+                        args = message.text.split()[1:]
+                        m.handle(bot, message, args)
+                    
+                    print(f"⚔️ Loaded: {cmd_name}")
+            except Exception as e:
+                print(f"⚔️ Failed to load {filename}: {e}")
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    bot.reply_to(message, "⚔️ 𝐌𝐫.𝐊𝐢𝐧𝐠 𝐁𝐨𝐭 𝐎𝐧𝐥𝐢𝐧𝐞 🕊️💖\nসব কমান্ড দেখতে /help লিখুন।")
+    bot.reply_to(message, "⚔️ Chillup Bot Started!\nWelcome Mr.King")
 
 if __name__ == "__main__":
     load_commands()
-    print("Mr.King Bot is running...")
+    print("⚔️ TgBot is Online!")
     bot.polling(none_stop=True)
+    
